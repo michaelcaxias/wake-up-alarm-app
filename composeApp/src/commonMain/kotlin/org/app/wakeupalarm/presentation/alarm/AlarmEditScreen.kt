@@ -35,7 +35,8 @@ import org.app.wakeupalarm.presentation.alarm.viewmodel.SimpleAlarmEditViewModel
 @Composable
 fun AlarmEditScreen(
     viewModel: SimpleAlarmEditViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onSave: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     val darkBackground = Color(0xFF1F2033)
@@ -95,8 +96,11 @@ fun AlarmEditScreen(
                         viewModel.updateSound(selectedRingtone)
                         viewModel.updateVibrate(isVibrateEnabled)
                         
-                        // Salvar e voltar
+                        // Salvar o alarme
                         viewModel.saveAlarm()
+                        
+                        // Chamar o callback de salvamento e voltar
+                        onSave()
                         onNavigateBack()
                     },
                     colors = ButtonDefaults.buttonColors(

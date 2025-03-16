@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import org.app.wakeupalarm.domain.model.Alarm
 import org.app.wakeupalarm.domain.model.DayOfWeek
 import org.app.wakeupalarm.navigation.Screen
 import org.app.wakeupalarm.presentation.alarm.AlarmEditScreen
@@ -28,6 +29,7 @@ import org.app.wakeupalarm.presentation.alarm.state.AlarmUiModel
 import org.app.wakeupalarm.presentation.alarm.viewmodel.AlarmListViewModel
 import org.app.wakeupalarm.presentation.alarm.viewmodel.SimpleAlarmEditViewModel
 import org.jetbrains.compose.ui.tooling.preview.Preview
+import java.util.UUID
 
 /**
  * Implementação simples do ViewModel para demonstração
@@ -61,6 +63,51 @@ class SimpleAlarmListViewModel : AlarmListViewModel {
             isLoading = false
         )
     )
+    
+    // Função para adicionar um novo alarme à lista
+    fun addAlarm(alarm: Alarm) {
+        // Converter o alarme do domínio para o modelo de UI
+        val alarmUiModel = AlarmUiModel(
+            id = alarm.id,
+            timeFormatted = formatTime(alarm.timeInMinutes),
+            label = alarm.label,
+            isEnabled = alarm.isEnabled,
+            repeatDaysFormatted = formatRepeatDays(alarm.repeatDays)
+        )
+        
+        // Adicionar o novo alarme à lista atual
+        val currentAlarms = _state.value.alarms.toMutableList()
+        currentAlarms.add(0, alarmUiModel) // Adicionar no início da lista
+        
+        // Atualizar o estado
+        _state.value = _state.value.copy(alarms = currentAlarms)
+    }
+    
+    // Função auxiliar para formatar o tempo
+    private fun formatTime(timeInMinutes: Int): String {
+        val hours = timeInMinutes / 60
+        val minutes = timeInMinutes % 60
+        return String.format("%02d:%02d", hours, minutes)
+    }
+    
+    // Função auxiliar para formatar os dias de repetição
+    private fun formatRepeatDays(days: List<DayOfWeek>): String {
+        if (days.isEmpty()) return "Once"
+        
+        // Verificar se são todos os dias
+        if (days.size == 7) return "Everyday"
+        
+        // Verificar se são dias úteis
+        val weekdays = listOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
+        if (days.size == 5 && days.containsAll(weekdays)) return "Weekdays"
+        
+        // Verificar se é fim de semana
+        val weekend = listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+        if (days.size == 2 && days.containsAll(weekend)) return "Weekend"
+        
+        // Caso contrário, listar os dias abreviados
+        return days.joinToString(" ") { it.name.take(3) }
+    }
     
     override val state: StateFlow<AlarmListState> = _state
     
@@ -99,6 +146,26 @@ fun App() {
     
     // ViewModel para a tela de edição de alarme
     val editViewModel = remember { SimpleAlarmEditViewModel() }
+    
+    // Função para adicionar um novo alarme à lista principal
+    val addAlarmToList: () -> Unit = {
+        // Obter o estado atual do editViewModel
+        val alarmState = editViewModel.state.value
+        
+        // Criar um novo alarme com os dados do editViewModel
+        val newAlarm = Alarm(
+            id = UUID.randomUUID().toString(),
+            timeInMinutes = alarmState.timeInMinutes,
+            label = alarmState.label,
+            isEnabled = true,
+            repeatDays = alarmState.repeatDays,
+            soundUri = alarmState.soundUri,
+            vibrate = alarmState.vibrate
+        )
+        
+        // Adicionar o alarme ao viewModel da lista principal
+        viewModel.addAlarm(newAlarm)
+    }
     
     val darkColorPalette = darkColors(
         primary = Color(0xFF4A5CFF),
@@ -197,6 +264,12 @@ fun App() {
                 AlarmEditScreen(
                     viewModel = editViewModel,
                     onNavigateBack = {
+                        // Voltar para a tela de lista de alarmes sem salvar
+                        currentScreen = Screen.AlarmList
+                    },
+                    onSave = {
+                        // Adicionar o alarme à lista principal
+                        addAlarmToList()
                         // Voltar para a tela de lista de alarmes
                         currentScreen = Screen.AlarmList
                     }
