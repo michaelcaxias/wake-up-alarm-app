@@ -42,10 +42,9 @@ fun AlarmEditScreen(
     val darkBackground = Color(0xFF1F2033)
     val accentColor = Color(0xFFFF4081)
     
-    // Valores para o time picker
+    // Valores para o time picker (formato 24h)
     var selectedHour by remember { mutableStateOf(state.timeInMinutes / 60) }
     var selectedMinute by remember { mutableStateOf(state.timeInMinutes % 60) }
-    var selectedAmPm by remember { mutableStateOf(if (selectedHour < 12) "AM" else "PM") }
     
     // Valores para os dias da semana
     var selectedDays by remember { mutableStateOf(state.repeatDays) }
@@ -144,14 +143,12 @@ fun AlarmEditScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            // Time Picker
+            // Time Picker (formato 24h)
             ModernTimePicker(
                 selectedHour = selectedHour,
                 selectedMinute = selectedMinute,
-                selectedAmPm = selectedAmPm,
                 onHourSelected = { selectedHour = it },
-                onMinuteSelected = { selectedMinute = it },
-                onAmPmSelected = { selectedAmPm = it }
+                onMinuteSelected = { selectedMinute = it }
             )
             
             Spacer(modifier = Modifier.height(48.dp))
@@ -488,40 +485,31 @@ fun DayButton(day: String, isSelected: Boolean, onClick: () -> Unit) {
 }
 
 /**
- * Seletor de hora moderno com estilo carrossel e scroll
+ * Seletor de hora moderno com estilo carrossel e scroll (formato 24h)
  */
 @Composable
 fun ModernTimePicker(
     selectedHour: Int,
     selectedMinute: Int,
-    selectedAmPm: String,
     onHourSelected: (Int) -> Unit,
-    onMinuteSelected: (Int) -> Unit,
-    onAmPmSelected: (String) -> Unit
+    onMinuteSelected: (Int) -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Lista de horas formatadas com zeros à esquerda
-        val hours = (1..12).map { it.toString().padStart(2, '0') }
+        // Lista de horas formatadas com zeros à esquerda (formato 24h)
+        val hours = (0..23).map { it.toString().padStart(2, '0') }
         
         // Lista de minutos formatados com zeros à esquerda
         val minutes = (0..59).map { it.toString().padStart(2, '0') }
         
-        // Calcular o índice da hora selecionada (12h format)
-        val hourIndex = if (selectedHour % 12 == 0) 11 else (selectedHour % 12) - 1
-        
         // Seletor de hora com scroll
         ScrollableNumberPicker(
             items = hours,
-            initialIndex = hourIndex,
-            onValueChange = { index ->
-                // Converter de volta para o formato 24h
-                val newHour = (index + 1) % 12
-                onHourSelected(if (newHour == 0) 12 else newHour + (if (selectedAmPm == "PM" && newHour != 12) 12 else 0))
-            }
+            initialIndex = selectedHour,
+            onValueChange = { index -> onHourSelected(index) }
         )
         
         Text(
@@ -538,50 +526,6 @@ fun ModernTimePicker(
             initialIndex = selectedMinute,
             onValueChange = { index -> onMinuteSelected(index) }
         )
-        
-        // AM/PM selector
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(start = 16.dp)
-        ) {
-            Text(
-                text = "PM",
-                color = if (selectedAmPm == "PM") Color.White else Color.Gray,
-                fontWeight = if (selectedAmPm == "PM") FontWeight.Bold else FontWeight.Normal,
-                fontSize = 16.sp,
-                modifier = Modifier
-                    .clickable { 
-                        onAmPmSelected("PM")
-                        // Ajustar a hora para PM
-                        val hour = selectedHour % 12
-                        if (hour != 0) {
-                            onHourSelected(hour + 12)
-                        } else {
-                            onHourSelected(12)
-                        }
-                    }
-                    .padding(vertical = 8.dp)
-            )
-            
-            Text(
-                text = "AM",
-                color = if (selectedAmPm == "AM") Color.White else Color.Gray,
-                fontWeight = if (selectedAmPm == "AM") FontWeight.Bold else FontWeight.Normal,
-                fontSize = 16.sp,
-                modifier = Modifier
-                    .clickable { 
-                        onAmPmSelected("AM")
-                        // Ajustar a hora para AM
-                        val hour = selectedHour % 12
-                        if (hour != 0) {
-                            onHourSelected(hour)
-                        } else {
-                            onHourSelected(0)
-                        }
-                    }
-                    .padding(vertical = 8.dp)
-            )
-        }
     }
 }
 

@@ -22,12 +22,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.app.wakeupalarm.domain.model.Alarm
 import org.app.wakeupalarm.domain.model.DayOfWeek
+import org.app.wakeupalarm.domain.usecase.ScheduleAlarmUseCase
 import org.app.wakeupalarm.navigation.Screen
 import org.app.wakeupalarm.presentation.alarm.AlarmEditScreen
 import org.app.wakeupalarm.presentation.alarm.state.AlarmListState
 import org.app.wakeupalarm.presentation.alarm.state.AlarmUiModel
 import org.app.wakeupalarm.presentation.alarm.viewmodel.AlarmListViewModel
 import org.app.wakeupalarm.presentation.alarm.viewmodel.SimpleAlarmEditViewModel
+import org.app.wakeupalarm.service.AlarmScheduler
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import java.util.UUID
 
@@ -64,6 +66,28 @@ class SimpleAlarmListViewModel : AlarmListViewModel {
         )
     )
     
+    // Caso de uso para agendar alarmes com uma implementação vazia do AlarmScheduler
+    // Em um app real, isso seria injetado com uma implementação específica da plataforma
+    private val scheduleAlarmUseCase = ScheduleAlarmUseCase(
+        object : AlarmScheduler {
+            override fun scheduleAlarm(alarm: Alarm) {
+                println("Scheduling alarm: ${alarm.id} at ${alarm.timeInMinutes / 60}:${alarm.timeInMinutes % 60}")
+            }
+            
+            override fun cancelAlarm(alarmId: String) {
+                println("Cancelling alarm: $alarmId")
+            }
+            
+            override fun cancelAllAlarms() {
+                println("Cancelling all alarms")
+            }
+            
+            override fun isAlarmScheduled(alarmId: String): Boolean {
+                return false
+            }
+        }
+    )
+    
     // Função para adicionar um novo alarme à lista
     fun addAlarm(alarm: Alarm) {
         // Converter o alarme do domínio para o modelo de UI
@@ -81,9 +105,12 @@ class SimpleAlarmListViewModel : AlarmListViewModel {
         
         // Atualizar o estado
         _state.value = _state.value.copy(alarms = currentAlarms)
+        
+        // Agendar o alarme
+        scheduleAlarmUseCase.execute(alarm)
     }
     
-    // Função auxiliar para formatar o tempo
+    // Função auxiliar para formatar o tempo no formato 24h
     private fun formatTime(timeInMinutes: Int): String {
         val hours = timeInMinutes / 60
         val minutes = timeInMinutes % 60
@@ -401,16 +428,7 @@ fun AlarmCard(
                             color = textColor
                         )
                         
-                        // Mostrar AM/PM para todos os alarmes ativos e para o primeiro alarme
-                        if (index == 0 || alarm.isEnabled) {
-                            val amPm = if (alarm.timeFormatted.split(":")[0].toInt() < 12) "AM" else "PM"
-                            Text(
-                                text = " $amPm",
-                                fontSize = 16.sp,
-                                color = textColor,
-                                modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
-                            )
-                        }
+                        // Formato 24h - sem necessidade de mostrar AM/PM
                     }
                     
                     // Mostrar tempo restante para todos os alarmes ativos e para o primeiro alarme
