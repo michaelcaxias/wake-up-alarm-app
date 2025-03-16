@@ -13,6 +13,8 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.view.WindowCompat
 import org.app.wakeupalarm.presentation.alarm.AlarmRingingScreen
@@ -31,6 +33,9 @@ class AlarmRingingActivity : ComponentActivity() {
             super.onCreate(savedInstanceState)
             
             Log.d(TAG, "onCreate: Iniciando activity de alarme")
+            
+            // Configurar a barra de status com a cor do tema
+            configureStatusBar()
             
             // Antes de tudo, garantir que a atividade não será destruída
             // quando o dispositivo está em modo de economia de energia
@@ -156,6 +161,21 @@ class AlarmRingingActivity : ComponentActivity() {
             Log.d(TAG, "setupWindowForLockScreen: Configuração concluída")
         } catch (e: Exception) {
             Log.e(TAG, "Erro geral ao configurar janela: ${e.message}")
+        }
+    }
+    
+    /**
+     * Configura a barra de status para usar a cor primária do tema
+     */
+    private fun configureStatusBar() {
+        // Definir a cor da barra de status para a cor primária do tema (azul)
+        val statusBarColor = Color(0xFF4A5CFF).toArgb()
+        window.statusBarColor = statusBarColor
+        
+        // Configurar para que o conteúdo seja desenhado atrás da barra de status
+        // e definir se os ícones da barra de status devem ser escuros ou claros
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false // ícones claros para tema escuro
         }
     }
     
