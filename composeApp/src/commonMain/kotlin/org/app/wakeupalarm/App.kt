@@ -2,6 +2,7 @@ package org.app.wakeupalarm
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
@@ -260,50 +261,90 @@ fun App(alarmScheduler: AlarmScheduler = getAlarmScheduler()) {
                     
                     // Bottom Navigation & FAB
                     Box(
-                        modifier = Modifier.fillMaxSize().padding(bottom = 16.dp),
+                        modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.BottomCenter
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            IconButton(
-                                onClick = { /* TODO */ },
-                                modifier = Modifier.size(48.dp)
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Outlined.List,
-                                    contentDescription = "List",
-                                    tint = Color.White.copy(alpha = 0.7f),
-                                    modifier = Modifier.size(28.dp)
+                        // Barra de navegação com fundo cinza diferenciado
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(80.dp)
+                                .background(
+                                    color = Color(0xFF252838) // Cinza mais claro que o background
                                 )
+                        ) {
+                            // Row com os ícones de navegação
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Ícone de lista à esquerda (cinza)
+                                IconButton(
+                                    onClick = { /* TODO */ },
+                                    modifier = Modifier.size(48.dp)
+                                ) {
+                                    Icon(
+                                        Icons.AutoMirrored.Outlined.List,
+                                        contentDescription = "List",
+                                        tint = Color(0xFF808080),
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                                
+                                // Espaço para o botão central
+                                Spacer(modifier = Modifier.width(48.dp))
+                                
+                                // Ícone de configurações à direita (cinza)
+                                IconButton(
+                                    onClick = { /* TODO */ },
+                                    modifier = Modifier.size(48.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Settings,
+                                        contentDescription = "Settings",
+                                        tint = Color(0xFF808080),
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
                             }
+                        }
+                        
+                        // Botão central com efeito de brilho
+                        Box(
+                            modifier = Modifier
+                                .offset(y = (-25).dp)
+                                .padding(bottom = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Efeito de brilho/glow azul
+                            Box(
+                                modifier = Modifier
+                                    .size(70.dp)
+                                    .background(
+                                        brush = Brush.radialGradient(
+                                            colors = listOf(
+                                                Color(0xFF5C6AFF).copy(alpha = 0.6f),
+                                                Color(0xFF5C6AFF).copy(alpha = 0.0f)
+                                            )
+                                        ),
+                                        shape = CircleShape
+                                    )
+                            )
                             
+                            // Botão azul central
                             FloatingActionButton(
                                 onClick = { 
                                     // Navegar para a tela de adição de alarme
                                     currentScreen = Screen.AlarmEdit(null)
                                 },
-                                backgroundColor = Color(0xFF4A5CFF),
+                                backgroundColor = Color(0xFF5C6AFF),
                                 modifier = Modifier.size(56.dp)
                             ) {
                                 Icon(
                                     Icons.Filled.Add,
                                     contentDescription = "Add Alarm",
                                     tint = Color.White
-                                )
-                            }
-                            
-                            IconButton(
-                                onClick = { /* TODO */ },
-                                modifier = Modifier.size(48.dp)
-                            ) {
-                                Icon(
-                                    Icons.Filled.Settings,
-                                    contentDescription = "Settings",
-                                    tint = Color.White.copy(alpha = 0.7f),
-                                    modifier = Modifier.size(28.dp)
                                 )
                             }
                         }
