@@ -46,6 +46,12 @@ fun AlarmEditScreen(
     var selectedHour by remember { mutableStateOf(state.timeInMinutes / 60) }
     var selectedMinute by remember { mutableStateOf(state.timeInMinutes % 60) }
     
+    // Atualizar a UI quando o estado muda
+    LaunchedEffect(state.timeInMinutes) {
+        selectedHour = state.timeInMinutes / 60
+        selectedMinute = state.timeInMinutes % 60
+    }
+    
     // Valores para os dias da semana
     var selectedDays by remember { mutableStateOf(state.repeatDays) }
     
@@ -531,12 +537,17 @@ fun ModernTimePicker(
 
 /**
  * Seletor de números com scroll para o time picker
+ * @param items Lista de itens a serem exibidos
+ * @param initialIndex Índice inicial para o scroll
+ * @param onValueChange Callback chamado quando o valor muda
+ * @param displayValue Valor atual a ser exibido (pode ser diferente do initialIndex)
  */
 @Composable
 fun ScrollableNumberPicker(
     items: List<String>,
     initialIndex: Int,
-    onValueChange: (Int) -> Unit
+    onValueChange: (Int) -> Unit,
+    displayValue: Int = initialIndex
 ) {
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
     var isDragging by remember { mutableStateOf(false) }
@@ -547,7 +558,7 @@ fun ScrollableNumberPicker(
         if (!listState.isScrollInProgress && isDragging) {
             isDragging = false
             // Encontrar o item mais próximo do centro
-            val centerIndex = listState.firstVisibleItemIndex + 1
+            val centerIndex = listState.firstVisibleItemIndex
             if (centerIndex != currentIndex) {
                 currentIndex = centerIndex.coerceIn(0, items.size - 1)
                 onValueChange(currentIndex)
@@ -590,7 +601,9 @@ fun ScrollableNumberPicker(
                     else -> index - 1 // Itens normais
                 }
                 
-                val isSelected = index == listState.firstVisibleItemIndex + 1
+                // Determinar se este é o item selecionado
+                // Usar o valor de exibição real em vez do índice do scroll
+                val isSelected = itemIndex == displayValue
                 
                 Text(
                     text = items[itemIndex],

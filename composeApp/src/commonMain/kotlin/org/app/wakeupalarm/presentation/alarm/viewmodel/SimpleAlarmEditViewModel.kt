@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.app.wakeupalarm.domain.model.DayOfWeek
 import java.util.UUID
+import java.util.Calendar
 
 /**
  * ViewModel simplificado para a tela de edição de alarme
@@ -16,7 +17,7 @@ class SimpleAlarmEditViewModel {
     private val _state = MutableStateFlow(
         AlarmEditState(
             id = UUID.randomUUID().toString(),
-            timeInMinutes = 7 * 60,
+            timeInMinutes = getCurrentTimeInMinutes(),
             label = "New Alarm",
             repeatDays = listOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY),
             soundUri = "default",
@@ -46,6 +47,16 @@ class SimpleAlarmEditViewModel {
     
     fun updateVibrate(vibrate: Boolean) {
         _state.value = _state.value.copy(vibrate = vibrate)
+    }
+    
+    /**
+     * Obtém a hora atual em minutos (horas * 60 + minutos)
+     */
+    private fun getCurrentTimeInMinutes(): Int {
+        val calendar = Calendar.getInstance()
+        val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        val minute = calendar.get(Calendar.MINUTE)
+        return hour * 60 + minute
     }
     
     fun saveAlarm() {
