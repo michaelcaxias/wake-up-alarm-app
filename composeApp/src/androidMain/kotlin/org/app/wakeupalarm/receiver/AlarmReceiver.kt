@@ -32,6 +32,8 @@ class AlarmReceiver : BroadcastReceiver() {
         const val EXTRA_ALARM_SOUND_URI = "alarm_sound_uri"
         const val EXTRA_ALARM_VIBRATE = "alarm_vibrate"
         
+        const val ACTION_STOP_ALARM = "org.app.wakeupalarm.STOP_ALARM"
+        
         private const val NOTIFICATION_CHANNEL_ID = "alarm_channel"
         private const val NOTIFICATION_ID = 1
         private const val TAG = "AlarmReceiver"
@@ -49,6 +51,13 @@ class AlarmReceiver : BroadcastReceiver() {
     private var mediaPlayer: MediaPlayer? = null
     
     override fun onReceive(context: Context, intent: Intent) {
+        // Verificar se é uma ação para parar o alarme
+        if (intent.action == ACTION_STOP_ALARM) {
+            // O ID do alarme não é usado aqui, mas poderia ser usado para cancelar alarmes específicos
+            stopAlarmSound()
+            return
+        }
+        
         val alarmId = intent.getStringExtra(EXTRA_ALARM_ID) ?: return
         val alarmLabel = intent.getStringExtra(EXTRA_ALARM_LABEL) ?: "Alarm"
         val soundUriString = intent.getStringExtra(EXTRA_ALARM_SOUND_URI) ?: "morning!"
@@ -149,7 +158,29 @@ class AlarmReceiver : BroadcastReceiver() {
             flags
         )
         
-        // Criar notificação
+        // Iniciar a AlarmRingingActivity
+        val ringingIntent = Intent(context, org.app.wakeupalarm.AlarmRingingActivity::class.java).apply {
+            // Definir flags para a intent para garantir que ela apareça sobre outras atividades
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+            )
+            // Passar os dados do alarme para a activity
+            putExtra(EXTRA_ALARM_ID, alarmId)
+            putExtra(EXTRA_ALARM_LABEL, alarmLabel)
+        }
+        
+        try {
+            // Tentar iniciar a activity
+            context.startActivity(ringingIntent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao iniciar a tela de alarme: ${e.message}")
+            // Se falhar, garantir que pelo menos a notificação seja exibida
+        }
+        
+        // Criar notificação como fallback
         val builder = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("Alarm: $alarmLabel")
