@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -23,27 +24,53 @@ import org.app.wakeupalarm.receiver.AlarmReceiver
  */
 class AlarmRingingActivity : ComponentActivity() {
     
+    private val TAG = "AlarmRingingActivity"
+    
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        
-        // Antes de tudo, trazer esta atividade para frente
-        bringActivityToFront()
-        
-        // Configurar a janela para exibir sobre a tela de bloqueio
-        setupWindowForLockScreen()
-        
-        // Obter os dados do alarme da intent
-        val alarmId = intent.getStringExtra(AlarmReceiver.EXTRA_ALARM_ID) ?: ""
-        val alarmLabel = intent.getStringExtra(AlarmReceiver.EXTRA_ALARM_LABEL) ?: "Alarm"
-        
-        setContent {
-            AlarmRingingScreen(
-                alarmLabel = alarmLabel,
-                onDismiss = {
-                    // Parar o alarme e fechar a activity
-                    stopAlarmAndFinish(alarmId)
-                }
-            )
+        try {
+            super.onCreate(savedInstanceState)
+            
+            Log.d(TAG, "onCreate: Iniciando activity de alarme")
+            
+            // Antes de tudo, garantir que a atividade não será destruída
+            // quando o dispositivo está em modo de economia de energia
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                setShowWhenLocked(true)
+                setTurnScreenOn(true)
+            } else {
+                @Suppress("DEPRECATION")
+                window.addFlags(
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                )
+            }
+            
+            // Configurar a janela para exibir sobre a tela de bloqueio
+            setupWindowForLockScreen()
+            
+            // Obter os dados do alarme da intent
+            val alarmId = intent.getStringExtra(AlarmReceiver.EXTRA_ALARM_ID) ?: ""
+            val alarmLabel = intent.getStringExtra(AlarmReceiver.EXTRA_ALARM_LABEL) ?: "Alarm"
+            
+            Log.d(TAG, "onCreate: Alarme ID: $alarmId, Label: $alarmLabel")
+            
+            setContent {
+                AlarmRingingScreen(
+                    alarmLabel = alarmLabel,
+                    onDismiss = {
+                        // Parar o alarme e fechar a activity
+                        stopAlarmAndFinish(alarmId)
+                    }
+                )
+            }
+            
+            Log.d(TAG, "onCreate: Tela de alarme configurada com sucesso")
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao criar a tela de alarme: ${e.message}")
+            e.printStackTrace()
+            // Garantir que a activity não falhe completamente
+            finish()
         }
     }
     
@@ -59,63 +86,76 @@ class AlarmRingingActivity : ComponentActivity() {
      * Traz esta activity para o primeiro plano, sobrepondo outras apps
      */
     private fun bringActivityToFront() {
-        // Garantir que a atividade esteja em primeiro plano
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
+        try {
+            Log.d(TAG, "bringActivityToFront: Trazendo a activity para frente")
+            
+            // Trazer a janela para frente com máxima prioridade
+            window.attributes.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
+            
+            // Definir o modo de exibição no notch apenas em versões compatíveis
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                window.attributes.layoutInDisplayCutoutMode = 
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+            
+            Log.d(TAG, "bringActivityToFront: Activity configurada para exibição prioritária")
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao trazer activity para frente: ${e.message}")
         }
-        
-        // Outras configurações para garantir visibilidade
-        window.addFlags(
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or 
-            WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
-        )
-        
-        // Trazer a janela para frente com máxima prioridade
-        window.attributes.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
-        window.attributes.layoutInDisplayCutoutMode = 
-            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
     }
     
     /**
      * Configura a janela para ser exibida sobre a tela de bloqueio
      */
     private fun setupWindowForLockScreen() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
+        try {
+            Log.d(TAG, "setupWindowForLockScreen: Configurando janela para tela de bloqueio")
             
-            // Desativar o keyguard se possível
-            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-            keyguardManager.requestDismissKeyguard(this, null)
-        } else {
-            // Para versões mais antigas do Android
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-            )
-        }
-        
-        // Configurações adicionais para visibilidade máxima
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // Para Android 11 (API 30) e superior
-            WindowCompat.setDecorFitsSystemWindows(window, false)
-            window.setDecorFitsSystemWindows(false)
-            window.insetsController?.let {
-                it.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
-                it.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                // Para Android 8.1+
+                try {
+                    // Desativar o keyguard se possível
+                    val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                    keyguardManager.requestDismissKeyguard(this, null)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Erro ao desativar keyguard: ${e.message}")
+                }
+            } else {
+                // Para versões mais antigas do Android
+                @Suppress("DEPRECATION")
+                window.addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD)
             }
-        } else {
-            // Para Android 10 (API 29) e inferior
-            @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            )
+            
+            // Configurações adicionais para visibilidade máxima (somente em versões compatíveis)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                // Para Android 11 (API 30) e superior
+                try {
+                    WindowCompat.setDecorFitsSystemWindows(window, false)
+                    window.insetsController?.let {
+                        it.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+                        it.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Erro ao configurar insetsController: ${e.message}")
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // Para Android 6-10
+                try {
+                    @Suppress("DEPRECATION")
+                    window.decorView.systemUiVisibility = (
+                        View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Erro ao configurar systemUiVisibility: ${e.message}")
+                }
+            }
+            
+            Log.d(TAG, "setupWindowForLockScreen: Configuração concluída")
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro geral ao configurar janela: ${e.message}")
         }
     }
     
