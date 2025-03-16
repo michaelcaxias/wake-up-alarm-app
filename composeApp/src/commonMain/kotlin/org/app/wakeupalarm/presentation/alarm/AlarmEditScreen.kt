@@ -3,6 +3,9 @@ package org.app.wakeupalarm.presentation.alarm
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
@@ -47,11 +50,13 @@ fun AlarmEditScreen(
     var selectedDays by remember { mutableStateOf(state.repeatDays) }
     
     // Valores para configurações adicionais
-    var alarmName by remember { mutableStateOf(state.label) }
-    var isIoTConnected by remember { mutableStateOf(false) }
-    var selectedRingtone by remember { mutableStateOf("morning!") }
+    var alarmName by remember { mutableStateOf(state.label.ifEmpty { "Alarme" }) }
+    var selectedRingtone by remember { mutableStateOf(state.soundUri.ifEmpty { "morning!" }) }
     var volume by remember { mutableStateOf(0.7f) }
     var isVibrateEnabled by remember { mutableStateOf(state.vibrate) }
+    
+    // Estado para controlar o diálogo de seleção de ringtone
+    var showRingtoneDialog by remember { mutableStateOf(false) }
     
     Box(
         modifier = Modifier
@@ -85,8 +90,9 @@ fun AlarmEditScreen(
                     onClick = {
                         // Atualizar o estado do viewModel antes de salvar
                         viewModel.updateTime(selectedHour * 60 + selectedMinute)
-                        viewModel.updateLabel(alarmName)
+                        viewModel.updateLabel(alarmName.ifEmpty { "Alarme" })
                         viewModel.updateRepeatDays(selectedDays)
+                        viewModel.updateSound(selectedRingtone)
                         viewModel.updateVibrate(isVibrateEnabled)
                         
                         // Salvar e voltar
@@ -106,30 +112,30 @@ fun AlarmEditScreen(
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            // Alarm Name with Edit icon
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(vertical = 8.dp)
+            // Alarm Name - Campo editável
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
             ) {
                 Text(
                     text = "Alarm Name",
                     color = Color.White,
                     fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
                 
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                IconButton(
-                    onClick = { /* Abrir diálogo para editar nome */ },
-                    modifier = Modifier.size(24.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Edit Name",
-                        tint = Color.White
-                    )
-                }
+                OutlinedTextField(
+                    value = alarmName,
+                    onValueChange = { alarmName = it },
+                    colors = TextFieldDefaults.outlinedTextFieldColors(
+                        textColor = Color.White,
+                        cursorColor = Color.White,
+                        focusedBorderColor = Color(0xFF4A5CFF),
+                        unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f)
+                    ),
+                    placeholder = { Text("Enter alarm name", color = Color.Gray) },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
             
             Spacer(modifier = Modifier.height(32.dp))
@@ -146,22 +152,8 @@ fun AlarmEditScreen(
             
             Spacer(modifier = Modifier.height(48.dp))
             
-            // IoT Connection Switch
-            SettingRow(
-                title = "Connect IoT",
-                trailing = {
-                    Switch(
-                        checked = isIoTConnected,
-                        onCheckedChange = { isIoTConnected = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = accentColor,
-                            uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = Color.Gray.copy(alpha = 0.5f)
-                        )
-                    )
-                }
-            )
+            // Espaçador no lugar da conexão IoT removida
+            Spacer(modifier = Modifier.height(16.dp))
             
             // Repeat Days Selector
             SettingRow(
@@ -188,11 +180,14 @@ fun AlarmEditScreen(
                 }
             )
             
-            // Ringtone Selector
+            // Ringtone Selector com diálogo de seleção
             SettingRow(
                 title = "Ringtone",
                 trailing = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { showRingtoneDialog = true }
+                    ) {
                         Text(
                             text = selectedRingtone,
                             color = Color.White,
@@ -206,6 +201,57 @@ fun AlarmEditScreen(
                     }
                 }
             )
+            
+            // Diálogo de seleção de ringtone
+            if (showRingtoneDialog) {
+                AlertDialog(
+                    onDismissRequest = { showRingtoneDialog = false },
+                    title = { Text("Select Ringtone", color = Color.White) },
+                    backgroundColor = Color(0xFF2A2B3D),
+                    contentColor = Color.White,
+                    text = {
+                        Column {
+                            val ringtones = listOf("morning!", "Gentle Alarm", "Sunrise", "Birdsong", "Ocean Waves")
+                            ringtones.forEach { ringtone ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            selectedRingtone = ringtone
+                                            showRingtoneDialog = false
+                                        }
+                                        .padding(vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = selectedRingtone == ringtone,
+                                        onClick = {
+                                            selectedRingtone = ringtone
+                                            showRingtoneDialog = false
+                                        },
+                                        colors = RadioButtonDefaults.colors(
+                                            selectedColor = accentColor,
+                                            unselectedColor = Color.Gray
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(ringtone, color = Color.White)
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = { showRingtoneDialog = false },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = accentColor
+                            )
+                        ) {
+                            Text("Close")
+                        }
+                    }
+                )
+            }
             
             // Volume Slider
             SettingRow(
@@ -293,7 +339,7 @@ fun SettingRow(
 }
 
 /**
- * Seletor de dias da semana moderno
+ * Seletor de dias da semana moderno com feedback visual melhorado
  */
 @Composable
 fun ModernDaySelector(
@@ -310,20 +356,108 @@ fun ModernDaySelector(
         "Sun" to DayOfWeek.SUNDAY
     )
     
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+    // Adicionar opções rápidas para seleção de dias
+    Column(
+        modifier = Modifier.fillMaxWidth()
     ) {
-        days.forEach { (label, day) ->
-            val isSelected = selectedDays.contains(day)
-            DayButton(
-                day = label,
-                isSelected = isSelected,
-                onClick = { onDaySelected(day, !isSelected) }
+        // Opções rápidas
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Dias úteis
+            QuickDayOption(
+                text = "Weekdays",
+                onClick = {
+                    val weekdays = listOf(
+                        DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
+                        DayOfWeek.THURSDAY, DayOfWeek.FRIDAY
+                    )
+                    weekdays.forEach { day ->
+                        if (!selectedDays.contains(day)) {
+                            onDaySelected(day, true)
+                        }
+                    }
+                }
+            )
+            
+            // Fins de semana
+            QuickDayOption(
+                text = "Weekend",
+                onClick = {
+                    val weekend = listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+                    weekend.forEach { day ->
+                        if (!selectedDays.contains(day)) {
+                            onDaySelected(day, true)
+                        }
+                    }
+                }
+            )
+            
+            // Todos os dias
+            QuickDayOption(
+                text = "Every Day",
+                onClick = {
+                    DayOfWeek.values().forEach { day ->
+                        if (!selectedDays.contains(day)) {
+                            onDaySelected(day, true)
+                        }
+                    }
+                }
+            )
+            
+            // Limpar
+            QuickDayOption(
+                text = "Clear",
+                onClick = {
+                    val currentDays = selectedDays.toList()
+                    currentDays.forEach { day ->
+                        onDaySelected(day, false)
+                    }
+                }
             )
         }
+        
+        // Seletor de dias individuais
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            days.forEach { (label, day) ->
+                val isSelected = selectedDays.contains(day)
+                DayButton(
+                    day = label,
+                    isSelected = isSelected,
+                    onClick = { onDaySelected(day, !isSelected) }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Botão para opções rápidas de seleção de dias
+ */
+@Composable
+fun QuickDayOption(
+    text: String,
+    onClick: () -> Unit
+) {
+    TextButton(
+        onClick = onClick,
+        colors = ButtonDefaults.textButtonColors(
+            contentColor = Color(0xFF4A5CFF)
+        )
+    ) {
+        Text(
+            text = text,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
@@ -350,7 +484,7 @@ fun DayButton(day: String, isSelected: Boolean, onClick: () -> Unit) {
 }
 
 /**
- * Seletor de hora moderno com estilo carrossel
+ * Seletor de hora moderno com estilo carrossel e scroll
  */
 @Composable
 fun ModernTimePicker(
@@ -366,11 +500,24 @@ fun ModernTimePicker(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Hour selector
-        TimePickerColumn(
-            items = listOf("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"),
-            selectedIndex = (selectedHour - 1) % 12,
-            onItemSelected = { onHourSelected((it + 1) % 12 + if (selectedAmPm == "PM") 12 else 0) }
+        // Lista de horas formatadas com zeros à esquerda
+        val hours = (1..12).map { it.toString().padStart(2, '0') }
+        
+        // Lista de minutos formatados com zeros à esquerda
+        val minutes = (0..59).map { it.toString().padStart(2, '0') }
+        
+        // Calcular o índice da hora selecionada (12h format)
+        val hourIndex = if (selectedHour % 12 == 0) 11 else (selectedHour % 12) - 1
+        
+        // Seletor de hora com scroll
+        ScrollableNumberPicker(
+            items = hours,
+            initialIndex = hourIndex,
+            onValueChange = { index ->
+                // Converter de volta para o formato 24h
+                val newHour = (index + 1) % 12
+                onHourSelected(if (newHour == 0) 12 else newHour + (if (selectedAmPm == "PM" && newHour != 12) 12 else 0))
+            }
         )
         
         Text(
@@ -381,16 +528,11 @@ fun ModernTimePicker(
             modifier = Modifier.padding(horizontal = 8.dp)
         )
         
-        // Minute selector
-        TimePickerColumn(
-            items = listOf("00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
-                    "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
-                    "21", "22", "23", "24", "25", "26", "27", "28", "29", "30",
-                    "31", "32", "33", "34", "35", "36", "37", "38", "39", "40",
-                    "41", "42", "43", "44", "45", "46", "47", "48", "49", "50",
-                    "51", "52", "53", "54", "55", "56", "57", "58", "59"),
-            selectedIndex = selectedMinute,
-            onItemSelected = { onMinuteSelected(it) }
+        // Seletor de minutos com scroll
+        ScrollableNumberPicker(
+            items = minutes,
+            initialIndex = selectedMinute,
+            onValueChange = { index -> onMinuteSelected(index) }
         )
         
         // AM/PM selector
@@ -404,7 +546,16 @@ fun ModernTimePicker(
                 fontWeight = if (selectedAmPm == "PM") FontWeight.Bold else FontWeight.Normal,
                 fontSize = 16.sp,
                 modifier = Modifier
-                    .clickable { onAmPmSelected("PM") }
+                    .clickable { 
+                        onAmPmSelected("PM")
+                        // Ajustar a hora para PM
+                        val hour = selectedHour % 12
+                        if (hour != 0) {
+                            onHourSelected(hour + 12)
+                        } else {
+                            onHourSelected(12)
+                        }
+                    }
                     .padding(vertical = 8.dp)
             )
             
@@ -414,7 +565,16 @@ fun ModernTimePicker(
                 fontWeight = if (selectedAmPm == "AM") FontWeight.Bold else FontWeight.Normal,
                 fontSize = 16.sp,
                 modifier = Modifier
-                    .clickable { onAmPmSelected("AM") }
+                    .clickable { 
+                        onAmPmSelected("AM")
+                        // Ajustar a hora para AM
+                        val hour = selectedHour % 12
+                        if (hour != 0) {
+                            onHourSelected(hour)
+                        } else {
+                            onHourSelected(0)
+                        }
+                    }
                     .padding(vertical = 8.dp)
             )
         }
@@ -422,65 +582,82 @@ fun ModernTimePicker(
 }
 
 /**
- * Coluna de seleção para o time picker
+ * Seletor de números com scroll para o time picker
  */
 @Composable
-fun TimePickerColumn(
+fun ScrollableNumberPicker(
     items: List<String>,
-    selectedIndex: Int,
-    onItemSelected: (Int) -> Unit
+    initialIndex: Int,
+    onValueChange: (Int) -> Unit
 ) {
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+    var isDragging by remember { mutableStateOf(false) }
+    var currentIndex by remember { mutableStateOf(initialIndex) }
+    
+    // Efeito para atualizar o valor quando o scroll para
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (!listState.isScrollInProgress && isDragging) {
+            isDragging = false
+            // Encontrar o item mais próximo do centro
+            val centerIndex = listState.firstVisibleItemIndex + 1
+            if (centerIndex != currentIndex) {
+                currentIndex = centerIndex.coerceIn(0, items.size - 1)
+                onValueChange(currentIndex)
+            }
+        }
+    }
+    
+    // Detectar quando o usuário começa a arrastar
+    LaunchedEffect(listState.firstVisibleItemIndex) {
+        if (listState.isScrollInProgress) {
+            isDragging = true
+        }
+    }
+    
     Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier.height(180.dp)
+        modifier = Modifier
+            .height(180.dp)
+            .width(80.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Column(
+        // Indicador de seleção (linha central)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .background(Color(0xFF2A2B3D).copy(alpha = 0.3f))
+        )
+        
+        LazyColumn(
+            state = listState,
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.width(80.dp)
+            modifier = Modifier.fillMaxHeight(),
+            contentPadding = PaddingValues(vertical = 60.dp)
         ) {
-            // Mostrar item anterior com opacidade reduzida
-            if (selectedIndex > 0) {
+            // Adicionar itens antes para permitir scroll infinito
+            items(items.size + 2) { index ->
+                val itemIndex = when {
+                    index == 0 -> items.size - 1 // Último item no topo
+                    index == items.size + 1 -> 0 // Primeiro item no final
+                    else -> index - 1 // Itens normais
+                }
+                
+                val isSelected = index == listState.firstVisibleItemIndex + 1
+                
                 Text(
-                    text = items[(selectedIndex - 1) % items.size],
-                    fontSize = 24.sp,
-                    color = Color.Gray.copy(alpha = 0.5f),
+                    text = items[itemIndex],
+                    fontSize = if (isSelected) 48.sp else 24.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isSelected) Color.White else Color.Gray.copy(alpha = 0.5f),
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .padding(vertical = 8.dp)
-                        .clickable { onItemSelected((selectedIndex - 1) % items.size) }
-                )
-            } else {
-                Text(
-                    text = items[items.size - 1],
-                    fontSize = 24.sp,
-                    color = Color.Gray.copy(alpha = 0.5f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .padding(vertical = 8.dp)
-                        .clickable { onItemSelected(items.size - 1) }
+                        .clickable {
+                            currentIndex = itemIndex
+                            onValueChange(itemIndex)
+                        }
                 )
             }
-            
-            // Item selecionado
-            Text(
-                text = items[selectedIndex],
-                fontSize = 64.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-            
-            // Próximo item com opacidade reduzida
-            Text(
-                text = items[(selectedIndex + 1) % items.size],
-                fontSize = 24.sp,
-                color = Color.Gray.copy(alpha = 0.5f),
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .padding(vertical = 8.dp)
-                    .clickable { onItemSelected((selectedIndex + 1) % items.size) }
-            )
         }
     }
 }
