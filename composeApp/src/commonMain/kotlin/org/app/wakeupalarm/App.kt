@@ -30,13 +30,15 @@ import org.app.wakeupalarm.presentation.alarm.state.AlarmUiModel
 import org.app.wakeupalarm.presentation.alarm.viewmodel.AlarmListViewModel
 import org.app.wakeupalarm.presentation.alarm.viewmodel.SimpleAlarmEditViewModel
 import org.app.wakeupalarm.service.AlarmScheduler
+import org.app.wakeupalarm.service.getAlarmScheduler
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import java.util.UUID
 
 /**
  * Implementação simples do ViewModel para demonstração
+ * @param alarmScheduler Implementação do agendador de alarmes específico da plataforma
  */
-class SimpleAlarmListViewModel : AlarmListViewModel {
+class SimpleAlarmListViewModel(private val alarmScheduler: AlarmScheduler) : AlarmListViewModel {
     private val _state = MutableStateFlow(
         AlarmListState(
             alarms = listOf(
@@ -66,27 +68,8 @@ class SimpleAlarmListViewModel : AlarmListViewModel {
         )
     )
     
-    // Caso de uso para agendar alarmes com uma implementação vazia do AlarmScheduler
-    // Em um app real, isso seria injetado com uma implementação específica da plataforma
-    private val scheduleAlarmUseCase = ScheduleAlarmUseCase(
-        object : AlarmScheduler {
-            override fun scheduleAlarm(alarm: Alarm) {
-                println("Scheduling alarm: ${alarm.id} at ${alarm.timeInMinutes / 60}:${alarm.timeInMinutes % 60}")
-            }
-            
-            override fun cancelAlarm(alarmId: String) {
-                println("Cancelling alarm: $alarmId")
-            }
-            
-            override fun cancelAllAlarms() {
-                println("Cancelling all alarms")
-            }
-            
-            override fun isAlarmScheduled(alarmId: String): Boolean {
-                return false
-            }
-        }
-    )
+    // Caso de uso para agendar alarmes usando a implementação específica da plataforma
+    private val scheduleAlarmUseCase = ScheduleAlarmUseCase(alarmScheduler)
     
     // Função para adicionar um novo alarme à lista
     fun addAlarm(alarm: Alarm) {
@@ -154,6 +137,40 @@ class SimpleAlarmListViewModel : AlarmListViewModel {
         _state.value = _state.value.copy(alarms = currentAlarms)
     }
     
+    override fun updateAlarm(alarm: Alarm) {
+        val currentAlarms = _state.value.alarms.toMutableList()
+        val index = currentAlarms.indexOfFirst { it.id == alarm.id }
+        
+        if (index >= 0) {
+            // Substituir o alarme existente pelo atualizado
+            currentAlarms[index] = AlarmUiModel(
+                id = alarm.id,
+                timeFormatted = formatTime(alarm.timeInMinutes),
+                label = alarm.label,
+                isEnabled = alarm.isEnabled,
+                repeatDaysFormatted = formatRepeatDays(alarm.repeatDays)
+            )
+            
+            _state.value = _state.value.copy(alarms = currentAlarms)
+            
+            // Reagendar o alarme com as novas configurações
+            scheduleAlarmUseCase.execute(alarm)
+        }
+    }
+    
+    override fun getAlarmRepeatDays(id: String): List<DayOfWeek> {
+        // Mapeamento de alarmes para seus dias de repetição
+        // Em uma implementação real, isso viria do repositório de dados
+        val alarmRepeatDaysMap = mapOf(
+            "1" to listOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY, DayOfWeek.SUNDAY), // Everyday
+            "2" to listOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY), // Mon Tue Wed Thu
+            "3" to listOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY) // Mon Tue Wed
+        )
+        
+        // Retornar os dias de repetição do alarme ou uma lista vazia se não encontrado
+        return alarmRepeatDaysMap[id] ?: emptyList()
+    }
+    
     override fun refresh() {
         // Nada a fazer na implementação simples
     }
@@ -161,12 +178,13 @@ class SimpleAlarmListViewModel : AlarmListViewModel {
 
 /**
  * Componente principal do aplicativo
+ * @param alarmScheduler Implementação do agendador de alarmes específico da plataforma
  */
 @Composable
 @Preview
-fun App() {
+fun App(alarmScheduler: AlarmScheduler = getAlarmScheduler()) {
     // Usando um ViewModel simples para demonstração
-    val viewModel = remember { SimpleAlarmListViewModel() }
+    val viewModel = remember { SimpleAlarmListViewModel(alarmScheduler) }
     
     // Estado para controlar a navegação entre telas
     var currentScreen by remember { mutableStateOf<Screen>(Screen.AlarmList) }
@@ -231,7 +249,13 @@ fun App() {
                         )
                         
                         // Alarm Cards
-                        AlarmList(viewModel)
+                        AlarmList(
+                            viewModel = viewModel,
+                            onEditAlarm = { alarmId ->
+                                // Navegar para a tela de edição do alarme selecionado
+                                currentScreen = Screen.AlarmEdit(alarmId)
+                            }
+                        )
                     }
                     
                     // Bottom Navigation & FAB
@@ -287,6 +311,29 @@ fun App() {
                 }
             }
             is Screen.AlarmEdit -> {
+                // Verificar se é edição de alarme existente ou criação de novo alarme
+                val alarmId = (currentScreen as Screen.AlarmEdit).alarmId
+                
+                // Se for edição, carregar os dados do alarme existente
+                if (alarmId != null) {
+                    // Encontrar o alarme na lista
+                    val alarmToEdit = viewModel.state.value.alarms.find { it.id == alarmId }
+                    
+                    // Se encontrou o alarme, carregar seus dados no editViewModel
+                    alarmToEdit?.let {
+                        // Extrair horas e minutos do formato HH:MM
+                        val timeParts = it.timeFormatted.split(":")
+                        val hours = timeParts[0].toInt()
+                        val minutes = timeParts[1].toInt()
+                        
+                        // Configurar o editViewModel com os dados do alarme
+                        editViewModel.updateTime(hours * 60 + minutes)
+                        editViewModel.updateLabel(it.label)
+                        editViewModel.updateRepeatDays(viewModel.getAlarmRepeatDays(it.id))
+                        // Manter as configurações de som e vibração padrão se não disponíveis
+                    }
+                }
+                
                 // Tela de edição de alarme
                 AlarmEditScreen(
                     viewModel = editViewModel,
@@ -295,8 +342,25 @@ fun App() {
                         currentScreen = Screen.AlarmList
                     },
                     onSave = {
-                        // Adicionar o alarme à lista principal
-                        addAlarmToList()
+                        if (alarmId != null) {
+                            // Atualizar alarme existente
+                            val updatedAlarm = Alarm(
+                                id = alarmId,
+                                timeInMinutes = editViewModel.state.value.timeInMinutes,
+                                label = editViewModel.state.value.label,
+                                isEnabled = true, // Manter ativo ao editar
+                                repeatDays = editViewModel.state.value.repeatDays,
+                                soundUri = editViewModel.state.value.soundUri,
+                                vibrate = editViewModel.state.value.vibrate
+                            )
+                            
+                            // Atualizar o alarme na lista
+                            viewModel.updateAlarm(updatedAlarm)
+                        } else {
+                            // Adicionar novo alarme à lista principal
+                            addAlarmToList()
+                        }
+                        
                         // Voltar para a tela de lista de alarmes
                         currentScreen = Screen.AlarmList
                     }
@@ -307,7 +371,7 @@ fun App() {
 }
 
 @Composable
-fun AlarmList(viewModel: AlarmListViewModel) {
+fun AlarmList(viewModel: AlarmListViewModel, onEditAlarm: (String) -> Unit = {}) {
     val state by viewModel.state.collectAsState()
     
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -317,7 +381,8 @@ fun AlarmList(viewModel: AlarmListViewModel) {
                 onToggle = { viewModel.toggleAlarmStatus(alarm.id, it) },
                 index = index,
                 onEdit = { 
-                    // TODO: Implementar navegação para edição de alarme existente
+                    // Navegar para a tela de edição do alarme selecionado usando o callback
+                    onEditAlarm(alarm.id)
                 },
                 onDelete = { viewModel.deleteAlarm(alarm.id) }
             )

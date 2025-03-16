@@ -17,6 +17,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import org.app.wakeupalarm.MainActivity
+import org.app.wakeupalarm.R
 import kotlin.random.Random
 
 /**
@@ -33,6 +34,7 @@ class AlarmReceiver : BroadcastReceiver() {
         
         private const val NOTIFICATION_CHANNEL_ID = "alarm_channel"
         private const val NOTIFICATION_ID = 1
+        private const val TAG = "AlarmReceiver"
         
         // Mapeamento de nomes de ringtones para URIs do sistema
         private val RINGTONE_MAP = mapOf(
@@ -134,16 +136,22 @@ class AlarmReceiver : BroadcastReceiver() {
         }
         
         // Criar PendingIntent
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        
         val pendingIntent = PendingIntent.getActivity(
             context,
             0,
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            flags
         )
         
         // Criar notificação
         val builder = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("Alarm: $alarmLabel")
             .setContentText("Tap to stop the alarm")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
