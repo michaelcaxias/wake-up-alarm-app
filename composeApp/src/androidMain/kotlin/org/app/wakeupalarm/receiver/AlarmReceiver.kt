@@ -46,14 +46,37 @@ class AlarmReceiver : BroadcastReceiver() {
             "Birdsong" to RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
             "Ocean Waves" to RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
         )
+        
+        // MediaPlayer estático compartilhado para garantir que qualquer instância
+        // do AlarmReceiver possa acessar e parar o som
+        private var mediaPlayer: MediaPlayer? = null
+        
+        /**
+         * Para o som do alarme - método estático acessível de qualquer lugar
+         */
+        fun stopAlarmSound() {
+            Log.d(TAG, "stopAlarmSound() chamado estaticamente")
+            try {
+                mediaPlayer?.apply {
+                    if (isPlaying) {
+                        stop()
+                    }
+                    release()
+                }
+                mediaPlayer = null
+            } catch (e: Exception) {
+                Log.e(TAG, "Erro ao parar o som: ${e.message}")
+            }
+        }
     }
     
-    private var mediaPlayer: MediaPlayer? = null
-    
     override fun onReceive(context: Context, intent: Intent) {
+        Log.d(TAG, "onReceive: ${intent.action}")
+        
         // Verificar se é uma ação para parar o alarme
         if (intent.action == ACTION_STOP_ALARM) {
-            // O ID do alarme não é usado aqui, mas poderia ser usado para cancelar alarmes específicos
+            Log.d(TAG, "Recebido broadcast para parar o alarme")
+            // Usar o método estático para garantir que o som pare
             stopAlarmSound()
             return
         }
@@ -79,10 +102,15 @@ class AlarmReceiver : BroadcastReceiver() {
     
     private fun playAlarmSound(context: Context, soundName: String) {
         try {
+            // Primeiro para qualquer som que esteja tocando
+            stopAlarmSound()
+            
             // Obter URI do som
             val soundUri = RINGTONE_MAP[soundName] ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             
-            // Configurar e iniciar o MediaPlayer
+            Log.d(TAG, "Iniciando som do alarme: $soundName")
+            
+            // Configurar e iniciar o MediaPlayer usando a referência estática
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(context, soundUri)
                 setAudioAttributes(
@@ -202,16 +230,9 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
     
-    /**
-     * Para o som do alarme
-     */
-    fun stopAlarmSound() {
-        mediaPlayer?.apply {
-            if (isPlaying) {
-                stop()
-            }
-            release()
-        }
-        mediaPlayer = null
+    // Delega a parada do som para o método estático no companion object
+    private fun stopAlarmSound() {
+        Log.d(TAG, "Parando o som do alarme")
+        AlarmReceiver.stopAlarmSound()
     }
 }

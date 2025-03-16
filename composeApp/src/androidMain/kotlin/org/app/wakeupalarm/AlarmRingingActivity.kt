@@ -163,29 +163,61 @@ class AlarmRingingActivity : ComponentActivity() {
      * Para o alarme e fecha a activity, retornando à tela anterior
      */
     private fun stopAlarmAndFinish(alarmId: String) {
-        // Enviar broadcast para parar o alarme
-        val intent = Intent(this, AlarmReceiver::class.java).apply {
-            action = AlarmReceiver.ACTION_STOP_ALARM
-            putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId)
-        }
-        sendBroadcast(intent)
-        
-        // Verificar se há uma activity anterior para retornar
-        val mainActivityIntent = Intent(this, MainActivity::class.java).apply {
-            // Adicionar flags para limpar a pilha de activities se necessário
-            // mas apenas se esta for a única activity aberta
-            if (isTaskRoot) {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        try {
+            Log.d(TAG, "stopAlarmAndFinish: Parando alarme e fechando a tela")
+            
+            // Chamar diretamente o método estático para parar o som, sem depender do broadcast
+            Log.d(TAG, "Chamando diretamente AlarmReceiver.stopAlarmSound()")
+            AlarmReceiver.stopAlarmSound()
+
+            // Também enviamos o broadcast como backup
+            val intent = Intent(this, AlarmReceiver::class.java).apply {
+                action = AlarmReceiver.ACTION_STOP_ALARM
+                putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId)
             }
+            sendBroadcast(intent)
+            Log.d(TAG, "stopAlarmAndFinish: Broadcast enviado para parar o som")
+            
+            // Forçar o fechamento da activity atual com flags especiais
+            try {
+                // Verificar se há uma activity anterior para retornar
+                val mainActivityIntent = Intent(this, MainActivity::class.java).apply {
+                    // Garantir que a MainActivity seja aberta corretamente
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or 
+                             Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                }
+                
+                // Se o alarme foi disparado enquanto o app estava fechado, abra a tela principal
+                if (isTaskRoot) {
+                    Log.d(TAG, "stopAlarmAndFinish: Abrindo MainActivity")
+                    startActivity(mainActivityIntent)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Erro ao navegar para MainActivity: ${e.message}")
+                // Mesmo com erro, tentar finalizar esta Activity
+            }
+            
+            // Definir um resultado para a activity (pode ajudar em alguns casos)
+            setResult(RESULT_OK)
+            
+            // Usar um handler para garantir que o finish() seja chamado após um pequeno delay
+            android.os.Handler(mainLooper).postDelayed({
+                Log.d(TAG, "stopAlarmAndFinish: Chamando finish() com delay")
+                // Forçar o fim desta activity
+                finishAndRemoveTask()
+                finish()
+            }, 100) // Pequeno delay para garantir que o broadcast foi processado
+            
+            // Também chamar finish() imediatamente
+            Log.d(TAG, "stopAlarmAndFinish: Chamando finish() imediatamente")
+            finish()
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro fatal ao tentar fechar a tela: ${e.message}")
+            e.printStackTrace()
+            // Última tentativa de forçar o fechamento da activity
+            finishAffinity()
+            finish()
         }
-        
-        // Se o alarme foi disparado enquanto o app estava fechado, abra a tela principal
-        if (isTaskRoot) {
-            startActivity(mainActivityIntent)
-        }
-        
-        // Fechar a activity atual
-        finish()
     }
 }
 

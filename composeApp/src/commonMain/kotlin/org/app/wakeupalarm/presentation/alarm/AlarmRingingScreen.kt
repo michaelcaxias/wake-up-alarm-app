@@ -2,6 +2,7 @@ package org.app.wakeupalarm.presentation.alarm
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -103,7 +104,11 @@ fun AlarmRingingScreen(
                     .background(
                         brush = Brush.radialGradient(gradientColors)
                     )
-                    .clickable(onClick = onDismiss),
+                    .clickable {
+                        // Chamar a função de dismiss quando o usuário clica no botão
+                        onDismiss()
+                    }
+                    .padding(12.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -125,9 +130,4 @@ fun AlarmRingingScreen(
     }
 }
 
-/**
- * Extensão para tornar um Modifier clicável
- */
-fun Modifier.clickable(onClick: () -> Unit): Modifier = this.then(
-    Modifier.padding(12.dp)
-)
+// Agora estamos usando o clickable padrão do Compose
